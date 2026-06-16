@@ -39,7 +39,7 @@ if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
 function broadcastGameState() {
 const publicBets = Object.values(currentRound.bets).length;
 const totalPool = Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0);
-broadcast({ type: 'gameState', round: currentRound.id, phase: currentRound.phase, timeLeft: }
+broadcast({ type: 'gameState', round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft, betCount: publicBets, totalPool });
 function broadcastAdminState() {
 const adminData = {
 type: 'adminState', round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.bets: Object.values(currentRound.bets),
