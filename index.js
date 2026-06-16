@@ -1,10 +1,10 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
-const cors = require('cors');
+const express = require(‘express’);
+const http = require(‘http’);
+const WebSocket = require(‘ws’);
+const bcrypt = require(‘bcryptjs’);
+const jwt = require(‘jsonwebtoken’);
+const { v4: uuidv4 } = require(‘uuid’);
+const cors = require(‘cors’);
 
 const app = express();
 const server = http.createServer(app);
@@ -13,196 +13,200 @@ const wss = new WebSocket.Server({ server });
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = 'tiranga_secret_2024';
-const ADMIN_PASSWORD = 'admin123';
+const JWT_SECRET = ‘tiranga_secret_2024’;
+const ADMIN_PASSWORD = ‘admin123’;
 const ROUND_DURATION = 60;
 
 let users = {};
 let rounds = [];
 let currentRound = {
-  id: 1, bets: {}, timeLeft: ROUND_DURATION, phase: 'betting', result: null,
+id: 1, bets: {}, timeLeft: ROUND_DURATION, phase: ‘betting’, result: null,
 };
 let clients = {};
 
 function getNumberColor(n) {
-  if (n === 0) return ['violet', 'red'];
-  if (n === 5) return ['violet', 'green'];
-  if ([1, 3, 7, 9].includes(n)) return ['red'];
-  return ['green'];
+if (n === 0) return [‘violet’, ‘red’];
+if (n === 5) return [‘violet’, ‘green’];
+if ([1, 3, 7, 9].includes(n)) return [‘red’];
+return [‘green’];
 }
 
 function broadcast(data, filter = null) {
-  const msg = JSON.stringify(data);
-  wss.clients.forEach(ws => {
-    if (ws.readyState === WebSocket.OPEN) {
-      if (!filter || filter(clients[ws])) ws.send(msg);
-    }
-  });
+const msg = JSON.stringify(data);
+wss.clients.forEach(ws => {
+if (ws.readyState === WebSocket.OPEN) {
+if (!filter || filter(clients[ws])) ws.send(msg);
+}
+});
 }
 
 function sendTo(ws, data) {
-  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
 }
 
 function broadcastGameState() {
-  const publicBets = Object.values(currentRound.bets).length;
-  const totalPool = Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0);
-  broadcast({ type: 'gameState', round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft, betCount: publicBets, totalPool });
+const publicBets = Object.values(currentRound.bets).length;
+const totalPool = Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0);
+broadcast({ type: ‘gameState’, round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft, betCount: publicBets, totalPool });
 }
 
 function broadcastAdminState() {
-  const adminData = {
-    type: 'adminState', round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft,
-    bets: Object.values(currentRound.bets),
-    totalPool: Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0),
-    players: Object.values(users).map(u => ({ id: u.id, username: u.username, balance: u.balance, totalBet: u.totalBet, totalWin: u.totalWin })),
-    history: rounds.slice(-20).reverse(),
-  };
-  wss.clients.forEach(ws => {
-    if (ws.readyState === WebSocket.OPEN && clients[ws] && clients[ws].isAdmin) ws.send(JSON.stringify(adminData));
-  });
+const adminData = {
+type: ‘adminState’, round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft,
+bets: Object.values(currentRound.bets),
+totalPool: Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0),
+players: Object.values(users).map(u => ({ id: u.id, username: u.username, balance: u.balance, totalBet: u.totalBet, totalWin: u.totalWin })),
+history: rounds.slice(-20).reverse(),
+};
+wss.clients.forEach(ws => {
+if (ws.readyState === WebSocket.OPEN && clients[ws] && clients[ws].isAdmin) ws.send(JSON.stringify(adminData));
+});
 }
 
 let timerInterval = setInterval(() => {
-  if (currentRound.phase !== 'betting') return;
-  currentRound.timeLeft--;
-  broadcastGameState();
-  if (currentRound.timeLeft <= 0) {
-    currentRound.phase = 'waiting';
-    broadcast({ type: 'waitingForResult', round: currentRound.id });
-    broadcastAdminState();
-  }
+if (currentRound.phase !== ‘betting’) return;
+currentRound.timeLeft–;
+broadcastGameState();
+if (currentRound.timeLeft <= 0) {
+currentRound.phase = ‘waiting’;
+broadcast({ type: ‘waitingForResult’, round: currentRound.id });
+broadcastAdminState();
+}
 }, 1000);
 
 function resolveRound(resultColor, resultNumber) {
-  if (currentRound.phase === 'betting') currentRound.phase = 'waiting';
-  const numColors = getNumberColor(resultNumber);
-  currentRound.result = { color: resultColor, number: resultNumber, numColors };
-  const payouts = [];
-  let totalPayout = 0;
+if (currentRound.phase === ‘betting’) currentRound.phase = ‘waiting’;
+const numColors = getNumberColor(resultNumber);
+currentRound.result = { color: resultColor, number: resultNumber, numColors };
+const payouts = [];
+let totalPayout = 0;
 
-  Object.entries(currentRound.bets).forEach(([userId, bet]) => {
-    const user = users[userId];
-    if (!user) return;
-    let multiplier = 0, winType = '';
-    const numColorMatch = numColors.includes(bet.color);
-    if (bet.betType === 'number' && bet.number === resultNumber) {
-      multiplier = 9; winType = 'Number match!';
-    } else if (bet.betType === 'color' || bet.betType === 'both') {
-      if (bet.number === resultNumber) { multiplier = 9; winType = 'Number match!'; }
-      else if (bet.color === resultColor || numColorMatch) {
-        if (resultColor === 'violet' || numColors.includes('violet')) { multiplier = 1.5; winType = 'Violet match!'; }
-        else { multiplier = 2; winType = 'Color match!'; }
-      }
-    }
-    const payout = Math.floor(bet.amount * multiplier);
-    user.balance += payout;
-    user.totalWin += payout;
-    totalPayout += payout;
-    payouts.push({ userId, username: bet.username, amount: bet.amount, payout, winType, multiplier });
-    const playerWs = [...wss.clients].find(ws => clients[ws] && clients[ws].userId === userId);
-    if (playerWs) sendTo(playerWs, { type: 'betResult', payout, multiplier, winType: winType || 'Better luck next time!', balance: user.balance, result: currentRound.result });
-  });
+Object.entries(currentRound.bets).forEach(([userId, bet]) => {
+const user = users[userId];
+if (!user) return;
+let multiplier = 0, winType = ‘’;
+const numColorMatch = numColors.includes(bet.color);
+if (bet.betType === ‘number’ && bet.number === resultNumber) {
+multiplier = 9; winType = ‘Number match!’;
+} else if (bet.betType === ‘color’ || bet.betType === ‘both’) {
+if (bet.number === resultNumber) { multiplier = 9; winType = ‘Number match!’; }
+else if (bet.color === resultColor || numColorMatch) {
+if (resultColor === ‘violet’ || numColors.includes(‘violet’)) { multiplier = 1.5; winType = ‘Violet match!’; }
+else { multiplier = 2; winType = ‘Color match!’; }
+}
+}
+const payout = Math.floor(bet.amount * multiplier);
+user.balance += payout;
+user.totalWin += payout;
+totalPayout += payout;
+payouts.push({ userId, username: bet.username, amount: bet.amount, payout, winType, multiplier });
+const playerWs = […wss.clients].find(ws => clients[ws] && clients[ws].userId === userId);
+if (playerWs) sendTo(playerWs, { type: ‘betResult’, payout, multiplier, winType: winType || ‘Better luck next time!’, balance: user.balance, result: currentRound.result });
+});
 
-  rounds.push({ id: currentRound.id, result: currentRound.result, bets: Object.values(currentRound.bets), totalPool: Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0), totalPayout, payouts });
-  broadcast({ type: 'roundResult', result: currentRound.result, round: currentRound.id });
-  broadcastAdminState();
+rounds.push({ id: currentRound.id, result: currentRound.result, bets: Object.values(currentRound.bets), totalPool: Object.values(currentRound.bets).reduce((s, b) => s + b.amount, 0), totalPayout, payouts });
+broadcast({ type: ‘roundResult’, result: currentRound.result, round: currentRound.id });
+broadcastAdminState();
 
-  setTimeout(() => {
-    currentRound = { id: currentRound.id + 1, bets: {}, timeLeft: ROUND_DURATION, phase: 'betting', result: null };
-    broadcast({ type: 'newRound', round: currentRound.id });
-    broadcastGameState();
-    broadcastAdminState();
-  }, 5000);
+setTimeout(() => {
+currentRound = { id: currentRound.id + 1, bets: {}, timeLeft: ROUND_DURATION, phase: ‘betting’, result: null };
+broadcast({ type: ‘newRound’, round: currentRound.id });
+broadcastGameState();
+broadcastAdminState();
+}, 5000);
 }
 
-wss.on('connection', (ws) => {
-  clients[ws] = { userId: null, username: null, isAdmin: false };
-  sendTo(ws, { type: 'connected' });
-  sendTo(ws, { type: 'gameState', round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft });
+wss.on(‘connection’, (ws) => {
+clients[ws] = { userId: null, username: null, isAdmin: false };
+sendTo(ws, { type: ‘connected’ });
+sendTo(ws, { type: ‘gameState’, round: currentRound.id, phase: currentRound.phase, timeLeft: currentRound.timeLeft });
 
-  ws.on('message', (raw) => {
-    let msg;
-    try { msg = JSON.parse(raw); } catch { return; }
+ws.on(‘message’, (raw) => {
+let msg;
+try { msg = JSON.parse(raw); } catch { return; }
 
-    if (msg.type === 'adminLogin') {
-      if (msg.password === ADMIN_PASSWORD) { clients[ws].isAdmin = true; sendTo(ws, { type: 'adminLoginSuccess' }); broadcastAdminState(); }
-      else sendTo(ws, { type: 'error', message: 'Wrong admin password' });
-      return;
-    }
+```
+if (msg.type === 'adminLogin') {
+  if (msg.password === ADMIN_PASSWORD) { clients[ws].isAdmin = true; sendTo(ws, { type: 'adminLoginSuccess' }); broadcastAdminState(); }
+  else sendTo(ws, { type: 'error', message: 'Wrong admin password' });
+  return;
+}
 
-    if (msg.type === 'register') {
-      const { username, password } = msg;
-      if (!username || !password) return sendTo(ws, { type: 'error', message: 'Username/password required' });
-      if (users[username]) return sendTo(ws, { type: 'error', message: 'Username taken' });
-      const hash = bcrypt.hashSync(password, 8);
-      const id = uuidv4();
-      users[username] = { id, username, passwordHash: hash, balance: 1000, totalBet: 0, totalWin: 0 };
-      clients[ws] = { userId: id, username, isAdmin: false };
-      sendTo(ws, { type: 'loginSuccess', username, balance: 1000 });
-      broadcastAdminState();
-      return;
-    }
+if (msg.type === 'register') {
+  const { username, password } = msg;
+  if (!username || !password) return sendTo(ws, { type: 'error', message: 'Username/password required' });
+  if (users[username]) return sendTo(ws, { type: 'error', message: 'Username taken' });
+  const hash = bcrypt.hashSync(password, 8);
+  const id = uuidv4();
+  users[username] = { id, username, passwordHash: hash, balance: 1000, totalBet: 0, totalWin: 0 };
+  clients[ws] = { userId: id, username, isAdmin: false };
+  sendTo(ws, { type: 'loginSuccess', username, balance: 1000 });
+  broadcastAdminState();
+  return;
+}
 
-    if (msg.type === 'login') {
-      const { username, password } = msg;
-      const user = users[username];
-      if (!user || !bcrypt.compareSync(password, user.passwordHash)) return sendTo(ws, { type: 'error', message: 'Invalid credentials' });
-      clients[ws] = { userId: user.id, username, isAdmin: false };
-      sendTo(ws, { type: 'loginSuccess', username, balance: user.balance });
-      return;
-    }
+if (msg.type === 'login') {
+  const { username, password } = msg;
+  const user = users[username];
+  if (!user || !bcrypt.compareSync(password, user.passwordHash)) return sendTo(ws, { type: 'error', message: 'Invalid credentials' });
+  clients[ws] = { userId: user.id, username, isAdmin: false };
+  sendTo(ws, { type: 'loginSuccess', username, balance: user.balance });
+  return;
+}
 
-    if (msg.type === 'placeBet') {
-      const client = clients[ws];
-      if (!client.userId) return sendTo(ws, { type: 'error', message: 'Not logged in' });
-      if (currentRound.phase !== 'betting') return sendTo(ws, { type: 'error', message: 'Betting closed' });
-      if (currentRound.bets[client.userId]) return sendTo(ws, { type: 'error', message: 'Already bet this round' });
-      const user = users[client.username];
-      const amount = parseInt(msg.amount);
-      if (!amount || amount <= 0 || amount > user.balance) return sendTo(ws, { type: 'error', message: 'Invalid amount' });
-      user.balance -= amount;
-      user.totalBet += amount;
-      currentRound.bets[client.userId] = { userId: client.userId, username: client.username, color: msg.color, number: msg.number, betType: msg.betType, amount };
-      sendTo(ws, { type: 'betPlaced', balance: user.balance, amount, color: msg.color, number: msg.number });
-      broadcastGameState();
-      broadcastAdminState();
-      return;
-    }
+if (msg.type === 'placeBet') {
+  const client = clients[ws];
+  if (!client.userId) return sendTo(ws, { type: 'error', message: 'Not logged in' });
+  if (currentRound.phase !== 'betting') return sendTo(ws, { type: 'error', message: 'Betting closed' });
+  if (currentRound.bets[client.userId]) return sendTo(ws, { type: 'error', message: 'Already bet this round' });
+  const user = users[client.username];
+  const amount = parseInt(msg.amount);
+  if (!amount || amount <= 0 || amount > user.balance) return sendTo(ws, { type: 'error', message: 'Invalid amount' });
+  user.balance -= amount;
+  user.totalBet += amount;
+  currentRound.bets[client.userId] = { userId: client.userId, username: client.username, color: msg.color, number: msg.number, betType: msg.betType, amount };
+  sendTo(ws, { type: 'betPlaced', balance: user.balance, amount, color: msg.color, number: msg.number });
+  broadcastGameState();
+  broadcastAdminState();
+  return;
+}
 
-    if (msg.type === 'adminSetResult') {
-      if (!clients[ws].isAdmin) return sendTo(ws, { type: 'error', message: 'Unauthorized' });
-      resolveRound(msg.color, parseInt(msg.number));
-      return;
-    }
+if (msg.type === 'adminSetResult') {
+  if (!clients[ws].isAdmin) return sendTo(ws, { type: 'error', message: 'Unauthorized' });
+  resolveRound(msg.color, parseInt(msg.number));
+  return;
+}
 
-    if (msg.type === 'adminAddBalance') {
-      if (!clients[ws].isAdmin) return;
-      const user = Object.values(users).find(u => u.username === msg.username);
-      if (!user) return;
-      user.balance += parseInt(msg.amount);
-      sendTo(ws, { type: 'adminSuccess', message: 'Added Rs.' + msg.amount + ' to ' + msg.username });
-      broadcastAdminState();
-      const playerWs = [...wss.clients].find(w => clients[w] && clients[w].userId === user.id);
-      if (playerWs) sendTo(playerWs, { type: 'balanceUpdate', balance: user.balance });
-      return;
-    }
+if (msg.type === 'adminAddBalance') {
+  if (!clients[ws].isAdmin) return;
+  const user = Object.values(users).find(u => u.username === msg.username);
+  if (!user) return;
+  user.balance += parseInt(msg.amount);
+  sendTo(ws, { type: 'adminSuccess', message: 'Added Rs.' + msg.amount + ' to ' + msg.username });
+  broadcastAdminState();
+  const playerWs = [...wss.clients].find(w => clients[w] && clients[w].userId === user.id);
+  if (playerWs) sendTo(playerWs, { type: 'balanceUpdate', balance: user.balance });
+  return;
+}
 
-    if (msg.type === 'adminRemoveBalance') {
-      if (!clients[ws].isAdmin) return;
-      const user = Object.values(users).find(u => u.username === msg.username);
-      if (!user) return;
-      user.balance = Math.max(0, user.balance - parseInt(msg.amount));
-      sendTo(ws, { type: 'adminSuccess', message: 'Removed Rs.' + msg.amount + ' from ' + msg.username });
-      broadcastAdminState();
-      return;
-    }
-  });
+if (msg.type === 'adminRemoveBalance') {
+  if (!clients[ws].isAdmin) return;
+  const user = Object.values(users).find(u => u.username === msg.username);
+  if (!user) return;
+  user.balance = Math.max(0, user.balance - parseInt(msg.amount));
+  sendTo(ws, { type: 'adminSuccess', message: 'Removed Rs.' + msg.amount + ' from ' + msg.username });
+  broadcastAdminState();
+  return;
+}
+```
 
-  ws.on('close', () => { delete clients[ws]; });
+});
+
+ws.on(‘close’, () => { delete clients[ws]; });
 });
 
 const HTML = `<!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -780,15 +784,16 @@ connectWS(()=>{
   });
 });
 </script>
+
 </body>
 </html>`;
 
-app.get('*', (req, res) => {
-  res.setHeader('Content-Type', 'text/html');
-  res.send(HTML);
+app.get(’*’, (req, res) => {
+res.setHeader(‘Content-Type’, ‘text/html’);
+res.send(HTML);
 });
 
-app.get('/api/history', (req, res) => res.json(rounds.slice(-50).reverse()));
+app.get(’/api/history’, (req, res) => res.json(rounds.slice(-50).reverse()));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log('07 Winn Game running on port ' + PORT));
+server.listen(PORT, () => console.log(’07 Winn Game running on port ’ + PORT));
