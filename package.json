@@ -1,0 +1,11 @@
+{
+  "name": "07-winn-game",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "cd server && npm install && node index.js",
+    "install-deps": "cd server && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

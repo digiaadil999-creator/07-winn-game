@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 Winn — Color Trading</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0d0d12;--surface:#16161f;--card:#1c1c28;--border:#252535;
+  --text:#f0f0fa;--muted:#6b6b85;--green:#25d366;--red:#ff4757;
+  --violet:#a855f7;--gold:#f5c542;--win:#2ecc71;--lose:#e74c3c;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;}
+
+/* ── SCREENS ── */
+.screen{display:none;min-height:100vh;}
+.screen.active{display:flex;flex-direction:column;}
+
+/* ── AUTH SCREEN ── */
+#authScreen{align-items:center;justify-content:center;padding:24px;}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px 28px;width:100%;max-width:380px;}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-logo h1{font-size:1.8rem;font-weight:800;letter-spacing:-1px;}
+.auth-logo h1 span.g{color:var(--green);}
+.auth-logo h1 span.w{color:#fff;}
+.auth-logo h1 span.r{color:var(--red);}
+.auth-logo p{color:var(--muted);font-size:0.85rem;margin-top:4px;}
+.tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:24px;}
+.tab-btn{flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-size:0.88rem;font-weight:600;cursor:pointer;transition:.2s;}
+.tab-btn.active{background:var(--border);color:var(--text);}
+.input-group{margin-bottom:14px;}
+.input-group label{display:block;font-size:0.78rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+.inp{width:100%;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.95rem;outline:none;transition:.2s;}
+.inp:focus{border-color:var(--gold);}
+.btn-primary{width:100%;padding:14px;background:var(--gold);color:#0d0d12;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px;transition:.2s;}
+.btn-primary:hover{opacity:.9;}
+.error-msg{color:var(--lose);font-size:0.82rem;text-align:center;margin-top:10px;min-height:20px;}
+.admin-link{text-align:center;margin-top:16px;font-size:0.82rem;color:var(--muted);}
+.admin-link a{color:var(--gold);cursor:pointer;text-decoration:none;}
+
+/* ── GAME SCREEN ── */
+#gameScreen{max-width:480px;margin:0 auto;width:100%;}
+.top-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}
+.top-bar-logo{font-size:1.1rem;font-weight:800;}
+.top-bar-logo span.g{color:var(--green);}
+.top-bar-logo span.r{color:var(--red);}
+.top-bar-logo span.v{color:var(--violet);}
+.balance-chip{background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 16px;font-family:'Space Mono',monospace;font-size:0.9rem;color:var(--gold);}
+
+.game-content{padding:14px;display:flex;flex-direction:column;gap:12px;}
+
+/* Timer card */
+.timer-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;}
+.round-info{font-size:0.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.round-number{font-size:2.2rem;font-weight:800;font-family:'Space Mono',monospace;color:var(--gold);line-height:1;}
+.timer-countdown{font-size:1rem;color:var(--muted);margin-top:4px;}
+.timer-countdown span{color:var(--gold);font-family:'Space Mono',monospace;font-size:1.1rem;}
+.progress-bar{margin-top:10px;height:5px;background:var(--border);border-radius:99px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:99px;background:var(--gold);transition:width 1s linear,background .3s;}
+.phase-badge{display:inline-block;margin-top:8px;padding:3px 12px;border-radius:99px;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;}
+.phase-badge.betting{background:rgba(37,211,102,.15);color:var(--green);}
+.phase-badge.waiting{background:rgba(245,197,66,.15);color:var(--gold);}
+.phase-badge.result{background:rgba(168,85,247,.15);color:var(--violet);}
+
+/* Result card */
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.result-waiting{color:var(--muted);font-size:0.88rem;}
+.result-balls{display:flex;gap:14px;align-items:center;justify-content:center;}
+.result-ball{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;font-family:'Space Mono',monospace;color:#fff;border:3px solid rgba(255,255,255,.2);}
+.result-ball.green{background:var(--green);}
+.result-ball.red{background:var(--red);}
+.result-ball.violet{background:var(--violet);}
+.result-ball.mixed{background:linear-gradient(135deg,var(--violet),var(--red));}
+.payout-result{padding:6px 20px;border-radius:99px;font-weight:700;font-size:0.95rem;}
+.payout-result.win{background:rgba(46,204,113,.15);color:var(--win);}
+.payout-result.lose{background:rgba(231,76,60,.15);color:var(--lose);}
+
+/* Bet section */
+.bet-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px;}
+.section-label{font-size:0.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+
+/* Color buttons */
+.color-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.color-btn{padding:14px 8px;border-radius:12px;border:3px solid transparent;cursor:pointer;text-align:center;font-size:0.78rem;font-weight:700;color:#fff;transition:.15s;text-transform:uppercase;letter-spacing:.5px;}
+.color-btn.green-btn{background:rgba(37,211,102,.2);color:var(--green);}
+.color-btn.red-btn{background:rgba(255,71,87,.2);color:var(--red);}
+.color-btn.violet-btn{background:rgba(168,85,247,.2);color:var(--violet);}
+.color-btn.selected.green-btn{background:var(--green);color:#fff;border-color:rgba(255,255,255,.4);}
+.color-btn.selected.red-btn{background:var(--red);color:#fff;border-color:rgba(255,255,255,.4);}
+.color-btn.selected.violet-btn{background:var(--violet);color:#fff;border-color:rgba(255,255,255,.4);}
+.color-payout{display:block;font-size:0.68rem;font-weight:400;opacity:.8;margin-top:2px;}
+
+/* Number grid */
+.num-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.num-btn{padding:12px 0;border-radius:10px;border:2px solid var(--border);background:var(--card);font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;cursor:pointer;text-align:center;transition:.15s;position:relative;}
+.num-btn .num-color-dot{width:6px;height:6px;border-radius:50%;position:absolute;bottom:4px;left:50%;transform:translateX(-50%);}
+.num-btn.selected{border-color:var(--gold);background:rgba(245,197,66,.1);color:var(--gold);}
+.num-btn.green-num{color:var(--green);}
+.num-btn.red-num{color:var(--red);}
+.num-btn.violet-num{color:var(--violet);}
+
+/* Amount */
+.amt-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.amt-chip{padding:8px 16px;border-radius:99px;background:var(--card);border:1px solid var(--border);font-size:0.82rem;font-family:'Space Mono',monospace;cursor:pointer;transition:.15s;}
+.amt-chip.selected{border-color:var(--gold);color:var(--gold);background:rgba(245,197,66,.08);}
+.custom-inp{flex:1;min-width:90px;padding:8px 14px;border-radius:99px;background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:0.82rem;outline:none;}
+.custom-inp:focus{border-color:var(--gold);}
+
+.bet-summary{font-size:0.8rem;color:var(--muted);text-align:center;min-height:16px;}
+.place-btn{width:100%;padding:15px;background:var(--gold);color:#0d0d12;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;transition:.2s;letter-spacing:.3px;}
+.place-btn:disabled{opacity:.3;cursor:not-allowed;}
+.place-btn:not(:disabled):hover{opacity:.9;}
+
+/* History */
+.history-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;}
+.history-dots{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.h-dot-item{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.h-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:0.85rem;font-weight:700;color:#fff;}
+.h-circle.green{background:var(--green);}
+.h-circle.red{background:var(--red);}
+.h-circle.violet{background:var(--violet);}
+.h-circle.mixed{background:linear-gradient(135deg,var(--violet),var(--red));}
+.h-rnd{font-size:0.6rem;color:var(--muted);}
+
+/* Payout info */
+.payout-table{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;}
+.payout-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.83rem;}
+.payout-row:last-child{border:none;}
+.payout-row .pay-val{font-family:'Space Mono',monospace;color:var(--gold);font-weight:700;}
+
+/* ── ADMIN SCREEN ── */
+#adminScreen{max-width:600px;margin:0 auto;width:100%;}
+.admin-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}
+.admin-bar h2{font-size:1rem;font-weight:700;color:var(--gold);}
+.admin-content{padding:14px;display:flex;flex-direction:column;gap:12px;}
+
+.admin-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;}
+.admin-card h3{font-size:0.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;}
+
+/* Result setter */
+.result-setter{display:flex;flex-direction:column;gap:10px;}
+.rs-colors{display:flex;gap:8px;}
+.rs-btn{flex:1;padding:12px;border-radius:10px;border:2px solid transparent;cursor:pointer;font-weight:700;font-size:0.85rem;transition:.15s;}
+.rs-btn.green{background:rgba(37,211,102,.15);color:var(--green);}
+.rs-btn.red{background:rgba(255,71,87,.15);color:var(--red);}
+.rs-btn.violet{background:rgba(168,85,247,.15);color:var(--violet);}
+.rs-btn.selected.green{background:var(--green);color:#fff;}
+.rs-btn.selected.red{background:var(--red);color:#fff;}
+.rs-btn.selected.violet{background:var(--violet);color:#fff;}
+.rs-nums{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.rs-num{padding:12px 0;border-radius:8px;border:2px solid var(--border);background:var(--card);font-family:'Space Mono',monospace;font-size:0.95rem;font-weight:700;cursor:pointer;text-align:center;transition:.15s;}
+.rs-num.selected{border-color:var(--gold);color:var(--gold);background:rgba(245,197,66,.1);}
+.rs-set-btn{padding:14px;background:#e74c3c;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:1rem;cursor:pointer;transition:.2s;}
+.rs-set-btn:hover{opacity:.9;}
+.rs-set-btn:disabled{opacity:.3;cursor:not-allowed;}
+.admin-status{font-size:0.82rem;color:var(--muted);text-align:center;min-height:18px;}
+
+/* Current bets */
+.bets-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
+.bet-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card);border-radius:8px;font-size:0.82rem;}
+.bet-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.bet-item .bi-num{font-family:'Space Mono',monospace;font-weight:700;}
+.bet-item .bi-amt{margin-left:auto;font-family:'Space Mono',monospace;color:var(--gold);}
+
+/* Players table */
+.players-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.players-table th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);}
+.players-table td{padding:8px 10px;border-bottom:1px solid var(--border);}
+.pl-actions{display:flex;gap:6px;}
+.pl-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.75rem;cursor:pointer;}
+.pl-btn.add{border-color:var(--green);color:var(--green);}
+.pl-btn.remove{border-color:var(--red);color:var(--red);}
+.pl-inp{width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.8rem;font-family:'Space Mono',monospace;}
+
+/* History table */
+.hist-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.hist-table th{text-align:left;padding:7px 8px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);}
+.hist-table td{padding:7px 8px;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;}
+.hist-profit{color:var(--win);}
+.hist-loss{color:var(--lose);}
+
+/* Admin login */
+#adminLoginBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:340px;width:100%;margin:auto;}
+
+.logout-btn{padding:7px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;font-size:0.82rem;cursor:pointer;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+</style>
+</head>
+<body>
+
+<!-- ── AUTH SCREEN ── -->
+<div class="screen active" id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <h1><span class="g">07</span> <span class="w">Wi</span><span class="r">nn</span></h1>
+      <p>Color Trading Game</p>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+      <button class="tab-btn" onclick="switchTab('register')">Register</button>
+    </div>
+    <div class="input-group"><label>Username</label><input class="inp" id="authUser" placeholder="Enter username"></div>
+    <div class="input-group"><label>Password</label><input class="inp" type="password" id="authPass" placeholder="Enter password"></div>
+    <button class="btn-primary" id="authBtn" onclick="doAuth()">Login</button>
+    <div class="error-msg" id="authError"></div>
+    <div class="admin-link">Admin? <a onclick="showAdminLogin()">Click here</a></div>
+  </div>
+</div>
+
+<!-- ── GAME SCREEN ── -->
+<div class="screen" id="gameScreen">
+  <div class="top-bar">
+    <div class="top-bar-logo"><span class="g">07</span> <span style="color:#fff">Wi</span><span class="r">nn</span></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="balance-chip" id="playerBalance">₹0</div>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="game-content">
+    <!-- Timer -->
+    <div class="timer-card">
+      <div class="round-info">Round</div>
+      <div class="round-number" id="roundNum">1</div>
+      <div class="timer-countdown">Next draw in <span id="timerText">60s</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:100%"></div></div>
+      <span class="phase-badge betting" id="phaseBadge">Betting Open</span>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div class="result-waiting">⏳ Waiting for draw result…</div>
+    </div>
+
+    <!-- Bet Section -->
+    <div class="bet-card">
+      <div>
+        <div class="section-label">Choose Color</div>
+        <div class="color-btns">
+          <div class="color-btn green-btn" onclick="selectColor('green',this)">Green<span class="color-payout">2× · 1.5× violet</span></div>
+          <div class="color-btn violet-btn" onclick="selectColor('violet',this)">Violet<span class="color-payout">4.5× win</span></div>
+          <div class="color-btn red-btn" onclick="selectColor('red',this)">Red<span class="color-payout">2× · 1.5× violet</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Choose Number (0–9)</div>
+        <div class="num-grid" id="numGrid"></div>
+      </div>
+
+      <div>
+        <div class="section-label">Bet Amount</div>
+        <div class="amt-chips">
+          <div class="amt-chip" onclick="selectAmt(10,this)">₹10</div>
+          <div class="amt-chip" onclick="selectAmt(50,this)">₹50</div>
+          <div class="amt-chip" onclick="selectAmt(100,this)">₹100</div>
+          <div class="amt-chip" onclick="selectAmt(500,this)">₹500</div>
+          <input class="custom-inp" id="customAmt" type="number" placeholder="Custom ₹" oninput="selectCustomAmt(this)">
+        </div>
+      </div>
+
+      <div class="bet-summary" id="betSummary">Pick color or number and amount to bet</div>
+      <button class="place-btn" id="placeBtn" disabled onclick="placeBet()">Place Bet</button>
+    </div>
+
+    <!-- Payout Info -->
+    <div class="payout-table">
+      <div class="section-label">Payout Rates</div>
+      <div class="payout-row"><span>🟢 Green / 🔴 Red (color bet)</span><span class="pay-val">2×</span></div>
+      <div class="payout-row"><span>🟣 Violet (color bet)</span><span class="pay-val">4.5×</span></div>
+      <div class="payout-row"><span>🔢 Number (0–9)</span><span class="pay-val">9×</span></div>
+      <div class="payout-row"><span>0️⃣5️⃣ Violet+Red / Violet+Green</span><span class="pay-val">1.5× on color</span></div>
+    </div>
+
+    <!-- History -->
+    <div class="history-card">
+      <div class="section-label">Recent Results</div>
+      <div class="history-dots" id="historyDots">
+        <span style="color:var(--muted);font-size:0.82rem;">No results yet</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN SCREEN ── -->
+<div class="screen" id="adminScreen">
+  <div class="admin-bar">
+    <h2>🛡️ 07 Winn — Admin</h2>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="adminRoundInfo" style="font-size:0.8rem;color:var(--muted);font-family:'Space Mono',monospace;"></span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="admin-content">
+
+    <!-- Set Result -->
+    <div class="admin-card">
+      <h3>🎯 Set Round Result</h3>
+      <div class="result-setter">
+        <div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;">SELECT COLOR</div>
+          <div class="rs-colors">
+            <button class="rs-btn green" onclick="adminSelectColor('green',this)">🟢 Green</button>
+            <button class="rs-btn violet" onclick="adminSelectColor('violet',this)">🟣 Violet</button>
+            <button class="rs-btn red" onclick="adminSelectColor('red',this)">🔴 Red</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;">SELECT NUMBER</div>
+          <div class="rs-nums" id="adminNumGrid"></div>
+        </div>
+        <div class="admin-status" id="adminStatus">Select color + number, then set result</div>
+        <button class="rs-set-btn" id="setResultBtn" disabled onclick="adminSetResult()">🎲 Set Result & Resolve Round</button>
+      </div>
+    </div>
+
+    <!-- Current Bets -->
+    <div class="admin-card">
+      <h3>💰 Current Round Bets (<span id="betCount">0</span>) — Pool: <span id="poolAmt" style="color:var(--gold);font-family:'Space Mono',monospace;">₹0</span></h3>
+      <div class="bets-list" id="adminBetsList">
+        <span style="color:var(--muted);font-size:0.82rem;">No bets yet</span>
+      </div>
+    </div>
+
+    <!-- Players -->
+    <div class="admin-card">
+      <h3>👥 Players</h3>
+      <table class="players-table">
+        <thead><tr><th>Username</th><th>Balance</th><th>Total Bet</th><th>Manage</th></tr></thead>
+        <tbody id="playersTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- History -->
+    <div class="admin-card">
+      <h3>📊 Round History</h3>
+      <div style="overflow-x:auto;">
+        <table class="hist-table">
+          <thead><tr><th>#</th><th>Result</th><th>Pool</th><th>Payout</th><th>Profit</th></tr></thead>
+          <tbody id="adminHistBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────
+const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+const ROUND_DURATION = 60;
+
+const NUM_COLORS = {
+  0:'violet',1:'red',2:'green',3:'red',4:'green',
+  5:'violet',6:'green',7:'red',8:'green',9:'red'
+};
+
+// ── STATE ────────────────────────────────────────────────────────
+let ws, isAdmin=false, authMode='login';
+let myBalance=0, myUsername='';
+let selectedColor=null, selectedNumber=null, selectedAmt=null;
+let betPlaced=false, currentPhase='betting';
+let adminSelectedColor=null, adminSelectedNumber=null;
+let roundDuration=ROUND_DURATION, roundTimeLeft=ROUND_DURATION, roundNum=1;
+
+// ── CONNECT WS ────────────────────────────────────────────────────
+function connectWS(onOpen){
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => { if(onOpen) onOpen(); };
+  ws.onmessage = (e) => handleMsg(JSON.parse(e.data));
+  ws.onclose = () => setTimeout(()=>connectWS(), 2000);
+}
+
+function send(data){ if(ws && ws.readyState===1) ws.send(JSON.stringify(data)); }
+
+// ── HANDLE MESSAGES ───────────────────────────────────────────────
+function handleMsg(msg){
+  if(msg.type==='connected') return;
+
+  if(msg.type==='error'){
+    document.getElementById('authError').textContent = msg.message;
+    return;
+  }
+
+  if(msg.type==='loginSuccess'){
+    myUsername = msg.username;
+    myBalance = msg.balance;
+    showScreen(isAdmin ? 'admin' : 'game');
+    return;
+  }
+
+  if(msg.type==='adminLoginSuccess'){
+    isAdmin = true;
+    showScreen('admin');
+    return;
+  }
+
+  if(msg.type==='gameState'){
+    roundNum = msg.round;
+    roundTimeLeft = msg.timeLeft;
+    currentPhase = msg.phase;
+    updateTimer();
+    updateGamePhaseUI();
+    return;
+  }
+
+  if(msg.type==='betPlaced'){
+    myBalance = msg.balance;
+    updateBalance();
+    betPlaced = true;
+    document.getElementById('placeBtn').disabled = true;
+    document.getElementById('betSummary').textContent = `✅ Bet placed! ₹${msg.amount} — Waiting for result…`;
+    return;
+  }
+
+  if(msg.type==='waitingForResult'){
+    currentPhase = 'waiting';
+    updateGamePhaseUI();
+    return;
+  }
+
+  if(msg.type==='betResult'){
+    myBalance = msg.balance;
+    updateBalance();
+    showBetResult(msg);
+    return;
+  }
+
+  if(msg.type==='roundResult'){
+    showRoundResult(msg.result, msg.round);
+    return;
+  }
+
+  if(msg.type==='newRound'){
+    roundNum = msg.round;
+    roundTimeLeft = roundDuration;
+    currentPhase = 'betting';
+    betPlaced = false;
+    selectedColor = null; selectedNumber = null; selectedAmt = null;
+    resetBetUI();
+    updateTimer();
+    updateGamePhaseUI();
+    document.getElementById('resultCard').innerHTML = '<div class="result-waiting">⏳ Waiting for draw result…</div>';
+    return;
+  }
+
+  if(msg.type==='balanceUpdate'){
+    myBalance = msg.balance;
+    updateBalance();
+    return;
+  }
+
+  if(msg.type==='adminState'){
+    updateAdminUI(msg);
+    return;
+  }
+
+  if(msg.type==='adminSuccess'){
+    document.getElementById('adminStatus').textContent = '✅ ' + msg.message;
+    return;
+  }
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────
+function switchTab(mode){
+  authMode = mode;
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', (i===0&&mode==='login')||(i===1&&mode==='register'));
+  });
+  document.getElementById('authBtn').textContent = mode==='login' ? 'Login' : 'Register';
+  document.getElementById('authError').textContent = '';
+}
+
+function doAuth(){
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value.trim();
+  if(!u||!p){ document.getElementById('authError').textContent='Fill all fields'; return; }
+  document.getElementById('authError').textContent='';
+  send({ type: authMode==='login'?'login':'register', username:u, password:p });
+}
+
+function showAdminLogin(){
+  const box = document.querySelector('.auth-box');
+  box.innerHTML = `
+    <div class="auth-logo"><h1 style="color:var(--gold)">Admin Panel</h1><p>07 Winn</p></div>
+    <div class="input-group"><label>Admin Password</label><input class="inp" type="password" id="adminPassInp" placeholder="Enter admin password"></div>
+    <button class="btn-primary" onclick="doAdminLogin()">Enter Admin</button>
+    <div class="error-msg" id="authError"></div>
+    <div class="admin-link"><a onclick="location.reload()">← Back to Player Login</a></div>
+  `;
+}
+
+function doAdminLogin(){
+  const p = document.getElementById('adminPassInp').value;
+  send({ type:'adminLogin', password:p });
+}
+
+function logout(){ location.reload(); }
+
+// ── SCREENS ───────────────────────────────────────────────────────
+function showScreen(s){
+  document.querySelectorAll('.screen').forEach(sc=>sc.classList.remove('active'));
+  if(s==='game'){
+    document.getElementById('gameScreen').classList.add('active');
+    updateBalance();
+    buildNumGrid();
+  } else if(s==='admin'){
+    document.getElementById('adminScreen').classList.add('active');
+    buildAdminNumGrid();
+  } else {
+    document.getElementById('authScreen').classList.add('active');
+  }
+}
+
+// ── GAME UI ───────────────────────────────────────────────────────
+function buildNumGrid(){
+  const grid = document.getElementById('numGrid');
+  grid.innerHTML = '';
+  for(let i=0;i<=9;i++){
+    const c = NUM_COLORS[i];
+    const btn = document.createElement('div');
+    btn.className = `num-btn ${c}-num`;
+    btn.textContent = i;
+    btn.dataset.n = i;
+    btn.innerHTML = `${i}<span class="num-color-dot" style="background:var(--${c})"></span>`;
+    btn.onclick = () => selectNumber(i, btn);
+    grid.appendChild(btn);
+  }
+}
+
+function updateBalance(){
+  document.getElementById('playerBalance').textContent = '₹'+myBalance.toLocaleString('en-IN');
+}
+
+function updateTimer(){
+  document.getElementById('roundNum').textContent = roundNum;
+  document.getElementById('timerText').textContent = roundTimeLeft+'s';
+  const pct = (roundTimeLeft / roundDuration)*100;
+  const fill = document.getElementById('progressFill');
+  fill.style.width = pct+'%';
+  fill.style.background = roundTimeLeft<=5?'var(--red)':roundTimeLeft<=10?'#e67e22':'var(--gold)';
+}
+
+function updateGamePhaseUI(){
+  const badge = document.getElementById('phaseBadge');
+  badge.className = 'phase-badge ' + currentPhase;
+  if(currentPhase==='betting') badge.textContent='Betting Open';
+  else if(currentPhase==='waiting') badge.textContent='Draw Pending…';
+  else badge.textContent='Result';
+
+  if(currentPhase!=='betting'){
+    document.getElementById('placeBtn').disabled=true;
+    if(!betPlaced) document.getElementById('betSummary').textContent='⏸️ Betting closed for this round';
+  } else if(!betPlaced){
+    updatePlaceBtn();
+  }
+}
+
+function selectColor(c, el){
+  if(currentPhase!=='betting'||betPlaced) return;
+  selectedColor = c;
+  document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  updatePlaceBtn();
+}
+
+function selectNumber(n, el){
+  if(currentPhase!=='betting'||betPlaced) return;
+  selectedNumber = n;
+  document.querySelectorAll('.num-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  updatePlaceBtn();
+}
+
+function selectAmt(a, el){
+  selectedAmt = a;
+  document.querySelectorAll('.amt-chip').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('customAmt').value='';
+  updatePlaceBtn();
+}
+
+function selectCustomAmt(el){
+  selectedAmt = parseInt(el.value)||null;
+  document.querySelectorAll('.amt-chip').forEach(b=>b.classList.remove('selected'));
+  updatePlaceBtn();
+}
+
+function updatePlaceBtn(){
+  const ready = (selectedColor||selectedNumber!==null) && selectedAmt && selectedAmt>0 && selectedAmt<=myBalance && currentPhase==='betting' && !betPlaced;
+  document.getElementById('placeBtn').disabled=!ready;
+  if(selectedAmt && (selectedColor||selectedNumber!==null)){
+    const parts=[];
+    if(selectedColor) parts.push(selectedColor.toUpperCase());
+    if(selectedNumber!==null) parts.push('Number '+selectedNumber);
+    document.getElementById('betSummary').textContent = `Betting ₹${selectedAmt} on ${parts.join(' + ')}`;
+  }
+}
+
+function placeBet(){
+  if(!selectedAmt||(!selectedColor&&selectedNumber===null)) return;
+  let betType = selectedColor&&selectedNumber!==null?'both':selectedColor?'color':'number';
+  send({ type:'placeBet', color:selectedColor, number:selectedNumber, betType, amount:selectedAmt });
+}
+
+function resetBetUI(){
+  document.querySelectorAll('.color-btn,.num-btn,.amt-chip').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('customAmt').value='';
+  document.getElementById('betSummary').textContent='Pick color or number and amount to bet';
+  document.getElementById('placeBtn').disabled=true;
+  selectedColor=null; selectedNumber=null; selectedAmt=null;
+}
+
+function showBetResult(msg){
+  const card = document.getElementById('resultCard');
+  const c = msg.result.color;
+  const n = msg.result.number;
+  const nc = NUM_COLORS[n];
+  const ballClass = nc==='violet'?'mixed':nc;
+  const won = msg.payout>0;
+  card.innerHTML = `
+    <div style="font-size:0.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Draw Result</div>
+    <div class="result-balls">
+      <div class="result-ball ${c}">${c.charAt(0).toUpperCase()}</div>
+      <div class="result-ball ${ballClass}">${n}</div>
+    </div>
+    <div class="payout-result ${won?'win':'lose'}">${won?'🎉 Won ₹'+msg.payout+' ('+msg.multiplier+'×)':'❌ '+msg.winType}</div>
+  `;
+  addHistoryDot(n, c, roundNum);
+}
+
+function showRoundResult(result, rnd){
+  const card = document.getElementById('resultCard');
+  if(!betPlaced){
+    const c=result.color, n=result.number, nc=NUM_COLORS[n];
+    const ballClass=nc==='violet'?'mixed':nc;
+    card.innerHTML=`
+      <div style="font-size:0.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Draw Result</div>
+      <div class="result-balls">
+        <div class="result-ball ${c}">${c.charAt(0).toUpperCase()}</div>
+        <div class="result-ball ${ballClass}">${n}</div>
+      </div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-top:4px;">No bet this round</div>
+    `;
+    addHistoryDot(n, c, rnd);
+  }
+}
+
+function addHistoryDot(n, c, rnd){
+  const dots = document.getElementById('historyDots');
+  if(dots.querySelector('span')) dots.innerHTML='';
+  const nc = NUM_COLORS[n];
+  const cls = nc==='violet'?'mixed':nc;
+  const item = document.createElement('div');
+  item.className='h-dot-item';
+  item.innerHTML=`<div class="h-circle ${cls}">${n}</div><div class="h-rnd">#${rnd}</div>`;
+  dots.insertBefore(item, dots.firstChild);
+  if(dots.children.length>15) dots.removeChild(dots.lastChild);
+}
+
+// ── ADMIN UI ──────────────────────────────────────────────────────
+function buildAdminNumGrid(){
+  const grid = document.getElementById('adminNumGrid');
+  grid.innerHTML='';
+  for(let i=0;i<=9;i++){
+    const btn=document.createElement('div');
+    btn.className='rs-num';
+    btn.textContent=i;
+    btn.dataset.n=i;
+    btn.onclick=()=>adminSelectNumber(i,btn);
+    grid.appendChild(btn);
+  }
+}
+
+function adminSelectColor(c, el){
+  adminSelectedColor=c;
+  document.querySelectorAll('.rs-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  checkAdminReady();
+}
+
+function adminSelectNumber(n, el){
+  adminSelectedNumber=n;
+  document.querySelectorAll('.rs-num').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  checkAdminReady();
+}
+
+function checkAdminReady(){
+  const ready = adminSelectedColor!==null && adminSelectedNumber!==null;
+  document.getElementById('setResultBtn').disabled=!ready;
+  if(ready) document.getElementById('adminStatus').textContent=`Ready: ${adminSelectedColor.toUpperCase()} + Number ${adminSelectedNumber}`;
+}
+
+function adminSetResult(){
+  if(adminSelectedColor===null||adminSelectedNumber===null) return;
+  if(!confirm(`Set result: ${adminSelectedColor.toUpperCase()} + ${adminSelectedNumber}?`)) return;
+  send({ type:'adminSetResult', color:adminSelectedColor, number:adminSelectedNumber });
+  adminSelectedColor=null; adminSelectedNumber=null;
+  document.querySelectorAll('.rs-btn,.rs-num').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('setResultBtn').disabled=true;
+  document.getElementById('adminStatus').textContent='⏳ Result set! Calculating payouts…';
+}
+
+function updateAdminUI(data){
+  document.getElementById('adminRoundInfo').textContent=`Round #${data.round} · ${data.phase} · ${data.timeLeft}s`;
+  document.getElementById('betCount').textContent=data.bets.length;
+  document.getElementById('poolAmt').textContent='₹'+data.totalPool.toLocaleString('en-IN');
+
+  // Bets list
+  const bl=document.getElementById('adminBetsList');
+  if(!data.bets.length){ bl.innerHTML='<span style="color:var(--muted);font-size:0.82rem;">No bets yet</span>'; }
+  else {
+    bl.innerHTML=data.bets.map(b=>`
+      <div class="bet-item">
+        <div class="bet-color-dot" style="background:var(--${b.color||'gold'})"></div>
+        <span>${b.username}</span>
+        ${b.color?`<span style="font-size:0.75rem;color:var(--${b.color})">${b.color}</span>`:''}
+        ${b.number!==null?`<span class="bi-num">#${b.number}</span>`:''}
+        <span class="bi-amt">₹${b.amount}</span>
+      </div>`).join('');
+  }
+
+  // Players
+  const pb=document.getElementById('playersTableBody');
+  pb.innerHTML=data.players.map(p=>`
+    <tr>
+      <td>${p.username}</td>
+      <td style="font-family:'Space Mono',monospace;color:var(--gold)">₹${p.balance.toLocaleString('en-IN')}</td>
+      <td style="font-family:'Space Mono',monospace;color:var(--muted)">₹${p.totalBet}</td>
+      <td>
+        <div class="pl-actions">
+          <input class="pl-inp" id="amt_${p.username}" type="number" placeholder="₹" min="1">
+          <button class="pl-btn add" onclick="adminAddBal('${p.username}')">+Add</button>
+          <button class="pl-btn remove" onclick="adminRemoveBal('${p.username}')">-Remove</button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  // History
+  const hb=document.getElementById('adminHistBody');
+  hb.innerHTML=data.history.map(r=>{
+    const profit=r.totalPool-r.totalPayout;
+    return `<tr>
+      <td>#${r.id}</td>
+      <td><span style="color:var(--${r.result.color})">${r.result.color} ${r.result.number}</span></td>
+      <td>₹${r.totalPool}</td>
+      <td>₹${r.totalPayout}</td>
+      <td class="${profit>=0?'hist-profit':'hist-loss'}">${profit>=0?'+':''}₹${profit}</td>
+    </tr>`;}).join('');
+}
+
+function adminAddBal(username){
+  const amt=parseInt(document.getElementById('amt_'+username).value);
+  if(!amt||amt<=0) return alert('Enter valid amount');
+  send({ type:'adminAddBalance', username, amount:amt });
+}
+
+function adminRemoveBal(username){
+  const amt=parseInt(document.getElementById('amt_'+username).value);
+  if(!amt||amt<=0) return alert('Enter valid amount');
+  send({ type:'adminRemoveBalance', username, amount:amt });
+}
+
+// ── CLIENT-SIDE TIMER SYNC ────────────────────────────────────────
+setInterval(()=>{
+  if(currentPhase==='betting' && roundTimeLeft>0){
+    roundTimeLeft--;
+    updateTimer();
+  }
+},1000);
+
+// ── START ─────────────────────────────────────────────────────────
+connectWS(()=>{
+  // Enter key for auth
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){
+      const authScreen=document.getElementById('authScreen');
+      if(authScreen.classList.contains('active')){
+        const adminPassInp=document.getElementById('adminPassInp');
+        if(adminPassInp) doAdminLogin(); else doAuth();
+      }
+    }
+  });
+});
+</script>
+</body>
+</html>
